@@ -2,10 +2,13 @@
 from io import BytesIO
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, QPushButton,
-                             QFileDialog)
+                             QFileDialog, QMessageBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 from PIL import Image
+import os
+import tempfile
+import ffmpeg
 from src.gui.widgets.comparison_widget import ComparisonWidget
 from src.core.upscaler import UpscaleThread
 from src.gui.widgets.status_widget import StatusWidget
@@ -177,36 +180,53 @@ class App(QMainWindow):
         buttons_layout.setAlignment(Qt.AlignCenter)
 
         # Change image button
-        change_btn = QPushButton('🖼 Change image')
-        change_btn.clicked.connect(self.change_image)
+        change_btn = QPushButton('🖼 Change media')
+        change_btn.clicked.connect(self.change_media)
         buttons_layout.addWidget(change_btn)
 
         # Upscale button
         upscale_btn = QPushButton('✨ Upscale')
-        upscale_btn.clicked.connect(self.upscale_image)
+        upscale_btn.clicked.connect(self.upscale_media)
         buttons_layout.addWidget(upscale_btn)
 
         self.layout.addLayout(buttons_layout)
 
-    def change_image(self):
+    def change_media(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            'Select Image',
+            'Select Image or Video',
             '',
-            'Image Files (*.png *.jpg *.jpeg *.webp *.bmp);;All Files (*.*)'
+            'Media Files (*.png *.jpg *.jpeg *.webp *.bmp *.mp4 *.avi *.mov *.mkv);;All Files (*.*)'
         )
 
         if file_path:
             self.status_widget.hide_status()
-            self.current_image_path = file_path
-            self.load_and_display_image(file_path)
-            pixmap = QPixmap(file_path)
-            self.comparison_widget.setImages(pixmap, pixmap, side_by_side=False)  # Single image mode
+            self.current_media_path = file_path
+            if self.is_video(file_path):
+                self.load_and_display_video_thumbnail(file_path)
+            else:
+                self.load_and_display_image(file_path)
             self.status_widget.clear()
 
             save_btn = self.findChild(QPushButton, 'save_button')
             if save_btn:
                 save_btn.deleteLater()
+
+    def is_video(self, path):
+        return os.path.splitext(path)[1].lower() in ['.mp4', '.avi', '.mov', '.mkv']
+
+    def load_and_display_video_thumbnail(self, path):
+        temp_dir = tempfile.mkdtemp()
+        thumbnail_path = os.path.join(temp_dir, 'thumbnail.png')
+        (
+            ffmpeg
+            .input(path, ss=1)
+            .output(thumbnail_path, vframes=1)
+            .run(quiet=True)
+        )
+        self.load_and_display_image(thumbnail_path)
+        os.remove(thumbnail_path)
+        os.rmdir(temp_dir)
 
     def load_and_display_image(self, path):
         # Open image with PIL to get dimensions
@@ -224,8 +244,8 @@ class App(QMainWindow):
         pixmap = QPixmap(path)
         self.comparison_widget.setImages(pixmap, pixmap)  # Initially show same image
 
-    def upscale_image(self):
-        if not self.current_image_path:
+    def upscale_media(self):
+        if not self.current_media_path:
             return
 
         model_index = self.model_combo.currentIndex()
@@ -233,25 +253,19 @@ class App(QMainWindow):
 
         self.status_widget.show_loading()
         self.comparison_widget.setVisible(True)
-        self.upscale_thread = UpscaleThread(self.current_image_path, model_index, scale)
-        self.upscale_thread.finished.connect(self.show_comparison)
+        self.upscale_thread = UpscaleThread(self.current_media_path, model_index, scale)
+        self.upscale_thread.finished.connect(self.show_upscaled_media)
         self.upscale_thread.start()
 
-    def show_comparison(self, upscaled_image):
-        self.upscaled_image = upscaled_image
+    def show_upscaled_media(self, output_path):
         self.status_widget.show_success()
-
-        # Convert upscaled PIL image to QPixmap
-        buffer = BytesIO()
-        upscaled_image.save(buffer, format="PNG")
-        buffer.seek(0)
-        upscaled_qimage = QImage()
-        upscaled_qimage.loadFromData(buffer.read())
-        upscaled_pixmap = QPixmap.fromImage(upscaled_qimage)
-
-        # Set images in comparison widget with side-by-side mode
-        original_pixmap = QPixmap(self.current_image_path)
-        self.comparison_widget.setImages(original_pixmap, upscaled_pixmap, side_by_side=True)
+        if self.is_video(output_path):
+            QMessageBox.information(self, 'Upscaling Complete', f'Upscaled video saved at {output_path}')
+        else:
+            self.upscaled_image = Image.open(output_path)
+            upscaled_pixmap = QPixmap(output_path)
+            original_pixmap = QPixmap(self.current_media_path)
+            self.comparison_widget.setImages(original_pixmap, upscaled_pixmap, side_by_side=True)
 
         # Add save button
         save_btn = self.findChild(QPushButton, 'save_button')

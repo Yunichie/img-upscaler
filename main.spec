@@ -1,12 +1,9 @@
-# app.spec
 block_cipher = None
 
-# Find realesrgan_ncnn_py model files
 import realesrgan_ncnn_py
 import os
 models_path = os.path.join(os.path.dirname(realesrgan_ncnn_py.__file__), 'models')
 
-# Collect all model files
 model_files = []
 for model_file in os.listdir(models_path):
     if model_file.endswith('.param') or model_file.endswith('.bin'):
@@ -18,7 +15,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=model_files,  # Include model files
+    datas=model_files,
     hiddenimports=['PIL', 'PIL._imagingtk', 'PIL._tkinter_finder'],
     hookspath=[],
     hooksconfig={},
@@ -39,12 +36,12 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Zenith',  # Your app name
+    name='Zenith',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Set to False for GUI apps
+    console=False,
 )
