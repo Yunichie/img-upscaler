@@ -135,15 +135,6 @@ class App(QMainWindow):
         options_layout = QHBoxLayout()
         options_layout.setAlignment(Qt.AlignCenter)
 
-        # Mode selection
-        mode_layout = QVBoxLayout()
-        mode_label = QLabel('Selected mode')
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(['x2 (generic)', 'x3 (generic)', 'x4 (generic)'])
-        self.mode_combo.setFixedWidth(200)
-        mode_layout.addWidget(mode_label)
-        mode_layout.addWidget(self.mode_combo)
-
         # Format selection
         format_layout = QVBoxLayout()
         format_label = QLabel('Output format')
@@ -168,8 +159,6 @@ class App(QMainWindow):
         model_layout.addWidget(model_label)
         model_layout.addWidget(self.model_combo)
 
-        options_layout.addLayout(mode_layout)
-        options_layout.addSpacing(20)
         options_layout.addLayout(format_layout)
         options_layout.addSpacing(20)
         options_layout.addLayout(model_layout)
@@ -236,8 +225,10 @@ class App(QMainWindow):
         # Update resolution labels
         self.original_res_label.setText(f'Original resolution: {width}x{height}')
 
-        # Calculate output resolution based on selected mode
-        scale = int(self.mode_combo.currentText()[1])
+        # Calculate output resolution based on selected model
+        model_index = self.model_combo.currentIndex()
+        scale_factors = {0: 2, 1: 3, 2: 4, 3: 4, 4: 4}
+        scale = scale_factors.get(model_index, 4)
         self.output_res_label.setText(f'Output resolution: {width * scale}x{height * scale}')
 
         # Load image for display
@@ -249,11 +240,10 @@ class App(QMainWindow):
             return
 
         model_index = self.model_combo.currentIndex()
-        scale = int(self.mode_combo.currentText()[1])
 
         self.status_widget.show_loading()
         self.comparison_widget.setVisible(True)
-        self.upscale_thread = UpscaleThread(self.current_media_path, model_index, scale)
+        self.upscale_thread = UpscaleThread(self.current_media_path, model_index)
         self.upscale_thread.finished.connect(self.show_upscaled_media)
         self.upscale_thread.start()
 

@@ -32,7 +32,7 @@ pip install -r requirements.txt
 
 1. Run the application:
 
-```python
+```bash
 python main.py
 ```
 
@@ -55,7 +55,7 @@ python main.py
 
 To create a standalone executable:
 
-```
+```bash
 pyinstaller main.spec
 ```
 

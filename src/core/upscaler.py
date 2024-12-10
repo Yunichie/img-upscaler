@@ -9,11 +9,10 @@ import tempfile
 class UpscaleThread(QThread):
     finished = pyqtSignal(str)
 
-    def __init__(self, input_path, model, scale):
+    def __init__(self, input_path, model):
         super().__init__()
         self.input_path = input_path
         self.model = model
-        self.scale = scale
 
     def run(self):
         if self.is_video(self.input_path):
